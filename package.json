@@ -1,0 +1,34 @@
+{
+  "name": "opencode-assistant",
+  "version": "0.3.0",
+  "description": "Personal AI assistant plugin for OpenCode Desktop",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "bun test test/",
+    "test:perf": "bun test test/perf/"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.3.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.3.3",
+    "@types/bun": "^1.3.11",
+    "@types/node": "^25.5.0",
+    "typescript": "^5.8.0"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "assistant"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gustavobgama/opencode-assistant.git"
+  },
+  "author": "Gustavo Gama",
+  "license": "MIT"
+}

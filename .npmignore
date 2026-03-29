@@ -1,0 +1,9 @@
+specs/
+test/
+src/
+tsconfig.json
+.git/
+.github/
+.vscode/
+.gitignore
+.npmignore

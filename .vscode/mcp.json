@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "spec-driven-steroids": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "spec-driven-steroids@latest", "mcp"]
+    }
+  }
+}
