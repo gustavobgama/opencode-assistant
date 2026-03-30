@@ -38,11 +38,11 @@
 
 ### FR-2: Machine Access (Auto-Approve Permissions)
 
-- **REQ-4:** WHEN o engine emite o evento `permission.asked`, THEN o plugin SHALL auto-aprovar chamando `client.permission.reply({ requestID, reply: "always" })` via SDK.
-  4.1 O auto-approve SHALL cobrir todas as categorias: bash, read, edit, external_directory.
-  4.2 O auto-approve SHALL ser ativável/desativável via flag no config do plugin.
-- **REQ-5:** O config do OpenCode SHALL incluir permissões explícitas como mecanismo primário: `permission: { bash: "allow", read: "allow", edit: "allow", external_directory: { "*": "allow" } }`.
-  5.1 O config é o mecanismo primário (avaliado sincronamente pelo engine); o plugin via evento é o mecanismo secundário (assíncrono, cobre casos onde config não foi configurado).
+- **REQ-4:** WHEN o plugin é instalado numa nova máquina, THEN a documentação (README) SHALL instruir o usuário a adicionar o bloco `permission` no `opencode.json`.
+  4.1 O auto-approve de permissões NÃO É POSSÍVEL via plugin — verificado em 3 abordagens (hook `permission.ask` = dead code, evento `permission.asked` = race condition com a UI, PATCH /config = reinicia instância e quebra Desktop).
+  4.2 O bloco `permission` no `opencode.json` é o ÚNICO mecanismo funcional — avaliado sincronamente pelo engine antes de qualquer tool execution.
+- **REQ-5:** O config do OpenCode SHALL incluir permissões explícitas: `permission: { bash: "allow", read: "allow", edit: "allow", external_directory: { "*": "allow" } }`.
+  5.1 Esta é uma configuração estática que o usuário deve manter no `opencode.json`.
 
 ### FR-3: Personal Assistant System Prompt
 
@@ -66,7 +66,7 @@
 ## 4. Non-Functional Requirements
 
 - **NFR-1:** O plugin DEVE ser carregado em menos de 500ms (não deve impactar o boot do OpenCode).
-- **NFR-2:** O handler de `permission.asked` no hook `event` DEVE responder rapidamente (POST local via SDK, sem latência perceptível).
+- **NFR-2:** ~~O handler de permissões DEVE responder rapidamente.~~ REMOVED — permissões são config estática, não há handler no plugin.
 - **NFR-3:** O plugin DEVE ter zero dependências além de `@opencode-ai/plugin` (mínimo footprint).
 - **NFR-4:** O plugin DEVE funcionar com OpenCode Desktop v1.3.3+ sem patches no engine.
 - **NFR-5:** O plugin DEVE ser testável standalone (sem precisar do OpenCode rodando).
@@ -79,7 +79,7 @@
 - **A-2:** GitHub Copilot está autenticado como provider.
 - **A-3:** Bun está instalado (o OpenCode usa Bun pra instalar deps de plugins).
 - **A-4:** O diretório de trabalho será `~/Assistant/`.
-- **A-5:** O engine publica o evento `permission.asked` no Bus quando uma permissão precisa de confirmação. Plugins recebem esse evento via hook `event` e podem responder via SDK (`client.permission.reply()`). O config `permission` no `opencode.json` é avaliado sincronamente pelo engine antes do evento — é o mecanismo primário e mais robusto.
+- **A-5:** ~~O engine publica o evento `permission.asked` que plugins podem interceptar.~~ INVALIDATED — 3 abordagens testadas e descartadas: (1) hook `permission.ask` nunca é invocado pelo engine, (2) evento `permission.asked` + SDK reply tem race condition com a UI, (3) PATCH /config reinicia instância e quebra o Desktop. Permissões só funcionam via config estática no `opencode.json`.
 - **A-6:** O hook `experimental.chat.system.transform` permite injetar strings no array `system` que compõe o system prompt.
 
 ---

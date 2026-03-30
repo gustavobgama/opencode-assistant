@@ -21,7 +21,7 @@ Extensão do plugin `opencode-assistant` com módulo de memória persistente. Ad
 
 ```mermaid
 graph TB
-    Plugin[Plugin: opencode-assistant] --> Perm[Event: permission.asked → auto-approve]
+    Plugin[Plugin: opencode-assistant] --> Perm[Config: permission allow all<br/>in opencode.json]
     Plugin --> SysPrompt[Hook: system.transform]
     Plugin --> Tools[Hook: tool]
     Plugin --> Compact[Hook: session.compacting]
@@ -386,7 +386,6 @@ ${lines.join("\n")}
 
 ```typescript
 import type { Plugin } from "@opencode-ai/plugin"
-import { createPermissionHandler } from "./hooks/permissions.js"
 import { createSystemPromptHook } from "./hooks/system-prompt.js"
 import { createCompactionHook } from "./hooks/compaction.js"
 import { memoryTools } from "./memory/tools.js"
@@ -402,7 +401,7 @@ const plugin: Plugin = async (input) => {
   getDb()
 
   return {
-    event: createPermissionHandler(input.client),
+    // Note: permissions are handled via opencode.json config, not via plugin hook
     "experimental.chat.system.transform": createSystemPromptHook(),
     "experimental.session.compacting": createCompactionHook(),
     tool: memoryTools,
@@ -421,7 +420,7 @@ export default plugin
 ├── src/
 │   ├── index.ts                    -- Updated: v0.2.0, adds memory hooks + tools
 │   ├── hooks/
-│   │   ├── permissions.ts          -- Unchanged (event handler for permission.asked)
+│   │   ├── permissions.ts          -- Documentation only (permissions via config, not plugin)
 │   │   ├── system-prompt.ts        -- Updated: injects <memories> block
 │   │   └── compaction.ts           -- NEW: session compaction hook
 │   └── memory/
