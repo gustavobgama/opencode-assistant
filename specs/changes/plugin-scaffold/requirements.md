@@ -6,7 +6,7 @@
 
 **Entregável:** O plugin instalado no OpenCode, agente respondendo em PT-BR como assistente pessoal de máquina (não coding agent), sem mensagens de restrição ao executar comandos como `brew install`, ler arquivos fora do projeto, ou editar em qualquer path.
 
-**Contexto:** O OpenCode tem um sistema de permissões com 3 níveis (allow/deny/ask). Por default, operações fora do diretório do projeto pedem confirmação. O plugin pode interceptar essas permissões via hook `permission.ask` e auto-aprovar. Combinado com config de permissões e AGENTS.md, isso transforma o OpenCode de coding agent em assistente pessoal.
+**Contexto:** O OpenCode tem um sistema de permissões com 3 níveis (allow/deny/ask). Por default, operações fora do diretório do projeto pedem confirmação. O plugin pode interceptar eventos `permission.asked` via hook `event` e auto-aprovar chamando `client.permission.reply()` via SDK. Combinado com config de permissões no `opencode.json` e AGENTS.md, isso transforma o OpenCode de coding agent em assistente pessoal.
 
 **Stakeholder:** Gustavo Gama (uso pessoal, máquina local).
 
@@ -38,11 +38,11 @@
 
 ### FR-2: Machine Access (Auto-Approve Permissions)
 
-- **REQ-4:** WHEN o engine pede confirmação de permissão (hook `permission.ask`), THEN o plugin SHALL auto-aprovar setando `output.status = "allow"`.
+- **REQ-4:** WHEN o engine emite o evento `permission.asked`, THEN o plugin SHALL auto-aprovar chamando `client.permission.reply({ requestID, reply: "always" })` via SDK.
   4.1 O auto-approve SHALL cobrir todas as categorias: bash, read, edit, external_directory.
   4.2 O auto-approve SHALL ser ativável/desativável via flag no config do plugin.
-- **REQ-5:** O config do OpenCode SHALL incluir permissões explícitas como fallback: `permission: { bash: "allow", read: "allow", edit: "allow", external_directory: { "*": "allow" } }`.
-  5.1 O plugin e o config de permissões são redundantes por design — defense in depth.
+- **REQ-5:** O config do OpenCode SHALL incluir permissões explícitas como mecanismo primário: `permission: { bash: "allow", read: "allow", edit: "allow", external_directory: { "*": "allow" } }`.
+  5.1 O config é o mecanismo primário (avaliado sincronamente pelo engine); o plugin via evento é o mecanismo secundário (assíncrono, cobre casos onde config não foi configurado).
 
 ### FR-3: Personal Assistant System Prompt
 
@@ -66,7 +66,7 @@
 ## 4. Non-Functional Requirements
 
 - **NFR-1:** O plugin DEVE ser carregado em menos de 500ms (não deve impactar o boot do OpenCode).
-- **NFR-2:** O hook `permission.ask` DEVE responder síncronamente (sem I/O, sem latência perceptível).
+- **NFR-2:** O handler de `permission.asked` no hook `event` DEVE responder rapidamente (POST local via SDK, sem latência perceptível).
 - **NFR-3:** O plugin DEVE ter zero dependências além de `@opencode-ai/plugin` (mínimo footprint).
 - **NFR-4:** O plugin DEVE funcionar com OpenCode Desktop v1.3.3+ sem patches no engine.
 - **NFR-5:** O plugin DEVE ser testável standalone (sem precisar do OpenCode rodando).
@@ -79,7 +79,7 @@
 - **A-2:** GitHub Copilot está autenticado como provider.
 - **A-3:** Bun está instalado (o OpenCode usa Bun pra instalar deps de plugins).
 - **A-4:** O diretório de trabalho será `~/Assistant/`.
-- **A-5:** O hook `permission.ask` é chamado antes de qualquer prompt interativo de permissão — se o plugin seta `allow`, o prompt não aparece.
+- **A-5:** O engine publica o evento `permission.asked` no Bus quando uma permissão precisa de confirmação. Plugins recebem esse evento via hook `event` e podem responder via SDK (`client.permission.reply()`). O config `permission` no `opencode.json` é avaliado sincronamente pelo engine antes do evento — é o mecanismo primário e mais robusto.
 - **A-6:** O hook `experimental.chat.system.transform` permite injetar strings no array `system` que compõe o system prompt.
 
 ---

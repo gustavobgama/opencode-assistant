@@ -112,7 +112,7 @@
 ### T-2.4: Validar specs atualizadas
 
 - [x] tasks.md atualizado com [x] em todas as tasks completadas → _Validates: spec hygiene_
-- [x] Nenhum regression no plugin-scaffold (permission hook + system prompt hook continuam funcionando) → _Validates: backward compat_
+- [x] Nenhum regression no plugin-scaffold (permission event handler + system prompt hook continuam funcionando) → _Validates: backward compat_
 - **Acceptance:** ✅ Spec completa, plugin v0.3.0 operacional.
 
 **Definition of Done Phase 2:** ✅ OpenCode com memória persistente cross-session funcional. Tools de memória respondendo, persistência validada, segurança verificada, zero regressões.

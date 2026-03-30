@@ -26,7 +26,7 @@ graph TB
     Engine --> Plugin[Plugin: opencode-assistant]
     Engine --> LLM[GitHub Copilot]
     Engine --> MCPs[MCPs externos]
-    Plugin -->|permission.ask| AutoApprove[Auto-Approve<br/>all permissions]
+    Plugin -->|event: permission.asked| AutoApprove[Auto-Approve<br/>via SDK reply]
     Plugin -->|system.transform| Prompt[Personal Assistant<br/>System Prompt]
     Engine --> AgentsMD[AGENTS.md<br/>global instructions]
 ```
@@ -41,12 +41,17 @@ sequenceDiagram
 
     OC->>P: plugin(input: PluginInput)
     P->>P: Initialize config, log version
-    P-->>OC: return Hooks { permission.ask, system.transform }
+    P-->>OC: return Hooks { event, system.transform }
     
     Note over OC,P: Runtime - Permission Check
-    OC->>P: permission.ask(input, output)
-    P->>P: output.status = "allow"
-    P-->>OC: (auto-approved, no user prompt)
+    OC->>OC: Evaluate permission rules from config
+    alt Config has "allow" rule
+        OC->>OC: Auto-approved (synchronous, no event)
+    else Config has "ask" or no rule
+        OC->>P: event({ type: "permission.asked", properties: { id, ... } })
+        P->>OC: client.permission.reply({ requestID: id, reply: "always" })
+        Note over OC,P: Auto-approved via SDK (async, ~1ms local)
+    end
     
     Note over OC,P: Runtime - System Prompt Build
     OC->>P: system.transform(input, output)
@@ -75,7 +80,7 @@ sequenceDiagram
 ├── src/
 │   ├── index.ts              -- Plugin entry point, exports default Plugin function
 │   ├── hooks/
-│   │   ├── permissions.ts    -- permission.ask hook (auto-approve)
+│   │   ├── permissions.ts    -- event handler for permission.asked (auto-approve via SDK)
 │   │   └── system-prompt.ts  -- experimental.chat.system.transform hook
 │   └── config.ts             -- Plugin config types and defaults
 ├── dist/                     -- Compiled output (tsc)
@@ -87,7 +92,7 @@ sequenceDiagram
 
 ```typescript
 import type { Plugin } from "@opencode-ai/plugin"
-import { createPermissionHook } from "./hooks/permissions"
+import { createPermissionHandler } from "./hooks/permissions"
 import { createSystemPromptHook } from "./hooks/system-prompt"
 
 const VERSION = "0.1.0"
@@ -97,7 +102,7 @@ const plugin: Plugin = async (input) => {
   console.log(`[opencode-assistant] directory: ${input.directory}`)
 
   return {
-    "permission.ask": createPermissionHook(),
+    event: createPermissionHandler(input.client),
     "experimental.chat.system.transform": createSystemPromptHook(),
   }
 }
@@ -144,25 +149,38 @@ Após publicação no npm, muda pra:
 
 ### DES-2: Auto-Approve Permissions → REQ-4..5
 
-**Tipo:** Hook `permission.ask`.
+**Tipo:** Event handler no hook `event` + SDK `client.permission.reply()`.
+
+**Contexto:** O OpenCode engine define um hook `permission.ask` na interface `Hooks`, mas **nunca o invoca via `Plugin.trigger()`** (verificado no código-fonte v1.3.3). O mecanismo real de auto-approve por plugin é:
+1. O engine avalia regras de permissão do `opencode.json` (síncrono)
+2. Se nenhuma regra casa com `"allow"`, publica o evento `permission.asked` no Bus
+3. Plugins recebem o evento via hook `event` e podem responder via SDK
 
 **Implementação (`src/hooks/permissions.ts`):**
 
 ```typescript
-import type { Hooks } from "@opencode-ai/plugin"
+import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 
-export function createPermissionHook(): NonNullable<Hooks["permission.ask"]> {
-  return async (_input, output) => {
-    output.status = "allow"
+export function createPermissionHandler(
+  client: PluginInput["client"],
+): NonNullable<Hooks["event"]> {
+  return async ({ event }) => {
+    if (event.type !== "permission.asked") return
+    const { id } = event.properties as { id: string }
+    try {
+      await client.permission.reply({ requestID: id, reply: "always" })
+    } catch {
+      // Best-effort: if reply fails, the TUI will show the permission prompt
+    }
   }
 }
 ```
 
-O hook é chamado pelo engine antes de mostrar o prompt interativo de permissão. Ao setar `output.status = "allow"`, a operação prossegue silenciosamente — sem popup, sem espera.
+O handler escuta eventos `permission.asked` e responde com `"always"` via SDK, auto-aprovando a permissão e impedindo que o prompt interativo apareça.
 
-**Defense in depth — config de permissões redundante:**
+**Defense in depth — config de permissões como mecanismo primário:**
 
-Além do hook, o `opencode.json` inclui permissões explícitas:
+O `opencode.json` inclui permissões explícitas que são avaliadas **sincronamente** pelo engine, antes de qualquer evento:
 
 ```json
 {
@@ -175,7 +193,7 @@ Além do hook, o `opencode.json` inclui permissões explícitas:
 }
 ```
 
-Isso garante que mesmo se o plugin falhar ao carregar, as permissões básicas continuam abertas. O hook é o mecanismo primário (mais granular), o config é fallback.
+Hierarquia: (1) config permission = mecanismo primário (síncrono, zero latência); (2) plugin event handler = mecanismo secundário (assíncrono, cobre caso de config não configurado numa nova máquina onde só o plugin está instalado).
 
 ---
 
@@ -312,8 +330,8 @@ O split entre plugin e AGENTS.md é intencional:
 | REQ-1 | DES-1 (Plugin Structure) | npm package com Plugin export |
 | REQ-2 | DES-1 | Console.log na init + hook registration |
 | REQ-3 | DES-1 | file:// pra dev, npm pra distribuição |
-| REQ-4 | DES-2 (Auto-Approve) | Hook permission.ask → output.status = "allow" |
-| REQ-5 | DES-2 | Config permission como fallback redundante |
+| REQ-4 | DES-2 (Auto-Approve) | Event handler permission.asked → client.permission.reply("always") |
+| REQ-5 | DES-2 | Config permission como mecanismo primário (síncrono) |
 | REQ-6 | DES-3 (System Prompt) | Hook system.transform → push assistant instructions |
 | REQ-7 | DES-3 | AGENTS.md global complementar |
 | REQ-8 | DES-3 | Security section no ASSISTANT_PROMPT + AGENTS.md (defense in depth) |

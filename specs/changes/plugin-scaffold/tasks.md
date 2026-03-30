@@ -26,7 +26,7 @@
 
 ### T-0.2: Implementar entry point e hook de permissões
 - [x] Criar `src/index.ts` com export default da função Plugin _Implements: DES-1_
-- [x] Criar `src/hooks/permissions.ts` com hook `permission.ask` que seta `output.status = "allow"` _Implements: DES-2_
+- [x] Criar `src/hooks/permissions.ts` com event handler que intercepta `permission.asked` e chama `client.permission.reply()` _Implements: DES-2_
 - [x] Registrar hook no retorno do plugin _Implements: DES-1_
 - **Acceptance:** ✅ Plugin compila, hook de permissão exportado
 
@@ -38,9 +38,9 @@
 ### T-0.4: Build e teste isolado
 - [x] Rodar `tsc` e verificar que `dist/index.js` é gerado sem erros _Implements: DES-1_
 - [x] Verificar que o módulo exporta uma função default que retorna Promise com hooks _Implements: DES-1_
-- **Acceptance:** ✅ `dist/index.js` existe, importável, retorna hooks. Testes programáticos: permission→allow PASS, system prompt injection PASS, contains security PASS, contains PT-BR PASS.
+- **Acceptance:** ✅ `dist/index.js` existe, importável, retorna hooks. Testes programáticos: permission auto-approve via event PASS, system prompt injection PASS, contains security PASS, contains PT-BR PASS.
 
-**Definition of Done Phase 0:** ✅ Plugin compilado em `dist/`, 2 hooks implementados (permission.ask + system.transform).
+**Definition of Done Phase 0:** ✅ Plugin compilado em `dist/`, 2 hooks implementados (event handler para permission.asked + system.transform).
 
 ---
 
