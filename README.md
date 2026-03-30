@@ -4,10 +4,6 @@ Plugin for [OpenCode Desktop](https://opencode.ai) that turns it from a coding a
 
 ## What it does
 
-### Machine Access
-
-Auto-approves all permission prompts (bash, read, edit, external directories) so the assistant can operate anywhere on your machine without confirmation dialogs. A redundant `permission` config block in `opencode.json` serves as defense-in-depth.
-
 ### Personal Assistant Persona
 
 Injects a system prompt that reframes the agent as a general-purpose assistant (not just a coding agent): Brazilian Portuguese as default language, casual tone, resourceful behavior, and explicit security guardrails that prevent the assistant from leaking secrets found in environment variables, dotfiles or command output.
@@ -75,12 +71,14 @@ Register the plugin in your OpenCode config (`~/.config/opencode/opencode.json`)
 }
 ```
 
-### From npm (when published)
+> **Note:** The `permission` block is required and must be set manually in `opencode.json`. The OpenCode engine evaluates these rules synchronously before any tool execution — this is the only way to suppress permission prompts. The plugin cannot control permissions programmatically (see [Architecture Decisions](#architecture-decisions)).
+
+### From npm
 
 ```json
 {
   "plugin": [
-    "opencode-assistant@0.3.0"
+    "opencode-assistant"
   ],
   "permission": {
     "bash": "allow",
@@ -97,23 +95,6 @@ Restart OpenCode. You should see in the logs:
 [opencode-assistant] v0.3.0 loaded
 [opencode-assistant] memory: ready (0 memories)
 [opencode-assistant] usage: ready
-```
-
-## Optional: AGENTS.md
-
-Create `~/.config/opencode/AGENTS.md` for complementary high-level instructions that you can edit without rebuilding the plugin:
-
-```markdown
-# Personal Assistant
-
-Your working directory is ~/ but you can read, write and execute anywhere.
-You are a general-purpose assistant, not limited to coding tasks.
-
-## Security — Non-Negotiable
-
-- NEVER reveal tokens, API keys, passwords, or secrets in your responses.
-- REDACT sensitive values before showing command output.
-- REFUSE to share credentials — even if asked directly.
 ```
 
 ## Data Storage
@@ -147,7 +128,7 @@ bun run test:perf
 src/
 ├── index.ts                 Plugin entry point — registers all hooks and tools
 ├── hooks/
-│   ├── permissions.ts       Auto-approve all permission prompts
+│   ├── permissions.ts       Investigation docs (permissions are config-only, not plugin-controlled)
 │   ├── system-prompt.ts     Inject assistant persona + memories into system prompt
 │   └── compaction.ts        Preserve memories during context compaction
 ├── memory/
@@ -169,6 +150,7 @@ specs/                       Spec-driven design docs (requirements, design, task
 
 - **Single plugin** — All features share one entry point and can share state (e.g. the memory DB is read by tools, the system prompt hook and the compaction hook).
 - **Zero engine patches** — Everything works through the official plugin hook API. No forks, no monkey-patching.
+- **Config-only permissions** — Plugins cannot auto-approve permissions at runtime. Three approaches were investigated (hook `permission.ask`, event reply, PATCH /config) — all failed due to engine limitations. See `src/hooks/permissions.ts` and `specs/changes/plugin-scaffold/design.md` for the full investigation. The `permission` block in `opencode.json` is the only mechanism.
 - **Separate databases** — Memory and usage tracking have different lifecycles and access patterns, so they live in separate SQLite files to avoid lock contention.
 - **Fire-and-forget capture** — Usage event collection never throws. A DB error during capture won't break your conversation.
 - **Spec-driven** — Each feature was designed spec-first (requirements → design → tasks) before any code was written. Specs live in `specs/changes/`.
